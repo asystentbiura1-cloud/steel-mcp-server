@@ -218,6 +218,27 @@ describe('BrowserPage.act — click', () => {
         expect(mouse[1]?.params).toMatchObject({ x: mouse[0]?.params.x, y: mouse[0]?.params.y });
     });
 
+    it('escalates a second dispatched click when neither attempt changes the page', async () => {
+        const fixture = actionFixture(fixtureSession(page([SAVE_BUTTON])));
+        const browserPage = await openPage(fixture);
+        await browserPage.snapshot({});
+
+        const first = await browserPage.act({ action: 'click', target: '@e1' });
+        expect(first.change).toMatchObject({ navigated: false, domMutated: false });
+        expect(first.changeDescription).toMatch(/nothing changed/i);
+
+        const repeated = await catchAsync(browserPage.act({ action: 'click', target: '@e1' }));
+        expect(repeated.code).toBe('click_blocked');
+        expect(repeated.message).toMatch(/twice.*nothing changed/i);
+        expect(repeated.message).toMatch(/do not retry/i);
+        expect(repeated.details).toMatchObject({
+            reason: 'no_observed_change',
+            handoff_required: true,
+            diagnostic: { pointer_dispatched: true },
+        });
+        expect(fixture.sent.filter(call => call.method === 'Input.dispatchMouseEvent')).toHaveLength(4);
+    });
+
     it('names the covering element when the click would not reach the target', async () => {
         const fixture = actionFixture(fixtureSession(page([SAVE_BUTTON])), {
             hitBackendNodeId: 77,
