@@ -117,8 +117,17 @@ export function fencedSection(
 }
 
 /** Renders the fixed one-line page-state section shared by the stateful tools. */
-export function pageStateLine(snapshot: Pick<PageSnapshot, 'url' | 'title' | 'snapshotId'>): string {
-    return `${snapshot.url}${snapshot.title ? ` — ${snapshot.title}` : ''} (snapshot ${snapshot.snapshotId})`;
+export function pageStateLine(
+    snapshot: Pick<PageSnapshot, 'url' | 'title' | 'snapshotId' | 'unreadableFrames'>
+): string {
+    const missing = snapshot.unreadableFrames;
+    // A form inside a frame that was not read is absent from the snapshot, and nothing else on the
+    // page looks wrong, so the count is part of the page state rather than a footnote.
+    const frames =
+        missing === 0
+            ? ''
+            : ` — ${missing} frame${missing === 1 ? '' : 's'} could not be read, so anything inside is missing`;
+    return `${snapshot.url}${snapshot.title ? ` — ${snapshot.title}` : ''} (snapshot ${snapshot.snapshotId})${frames}`;
 }
 
 export type Sections = EnvelopeSections;
