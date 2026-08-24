@@ -28,7 +28,8 @@ The entrypoints, since three of them have similar names:
 
 ## Dependencies are split on purpose
 
-`dependencies` holds only what `dist/stdio.js` imports — four packages. Everything the
+`dependencies` holds only what `dist/stdio.js` imports — five packages
+(`@modelcontextprotocol/server`, `@opentelemetry/api`, `safe-regex2`, `ws`, `zod`). Everything the
 hosted path needs is an **optional `peerDependency`**, so it is absent from a default install:
 
 | Package | Needed by | Why it is not a dependency |
@@ -38,11 +39,13 @@ hosted path needs is an **optional `peerDependency`**, so it is absent from a de
 | `@opentelemetry/sdk-node`, `@opentelemetry/exporter-trace-otlp-http` | `tracing.ts`, only when an `OTEL_*` variable asks | 35M. Loaded through a dynamic `import()` in a `try`/`catch` that warns and carries on, so absent is a supported state |
 
 Measured 2026-08-04: with those in `dependencies` and `optionalDependencies`, a consumer install was
-**68M across 85 packages**. It is now **17M across 5** — the same tree the MCPB bundle carries. npm
-installs `optionalDependencies` by default, which is why the exporter stack reached everyone; only
-`peerDependenciesMeta.<name>.optional` actually keeps a package out of a default install.
+**68M across 85 packages**. Re-measured 2026-08-24, it is **17M across 7 packages** — the same tree the
+MCPB bundle carries. npm installs `optionalDependencies` by default, which is why the exporter stack
+reached everyone; only `peerDependenciesMeta.<name>.optional` actually keeps a package out of a
+default install.
 
-All four are also in `devDependencies`, so this repository builds, typechecks and tests against them.
+All four hosted-only peers are also in `devDependencies`, so this repository builds, typechecks and
+tests against them.
 The dashboard-only release-candidate replay path has no Hls.js dependency or staged player asset.
 Consequences to remember:
 
