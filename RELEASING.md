@@ -96,7 +96,9 @@ The manually dispatched `release.yml`:
 2. Uploads that MCPB with `SHA256SUMS`, then pauses at the protected `release` environment so an
    operator can install and smoke those exact bytes in Claude Desktop.
 3. After approval, downloads and verifies the same artifact, creates an annotated immutable tag at
-   the recorded SHA, and publishes a GitHub prerelease. It never rebuilds in the publish job.
+   the recorded SHA, and publishes the GitHub release. A version with a prerelease suffix (`-rc.N`)
+   is marked prerelease and not Latest; a bare version (`2.0.0`) publishes as a full release and
+   becomes Latest. It never rebuilds in the publish job.
 4. Does not publish npm or GHCR. Those require a separate ownership and distribution decision.
 
 Configure the GitHub `release` environment with a required reviewer before dispatching the workflow.
@@ -117,9 +119,9 @@ Do not tag it locally. Confirm the version surfaces and dispatch the protected w
 npm run sync:version -- --check   # the generated version surfaces agree
 ```
 
-The protected publish job creates `v<current-version>` only after approval and marks its GitHub
-release as a prerelease that is not Latest. If anything is wrong after publication, prepare the next
-prerelease; never move an existing tag.
+The protected publish job creates `v<current-version>` only after approval; a suffixed version is
+marked prerelease and not Latest, a bare one becomes the Latest release. If anything is wrong after
+publication, prepare the next release; never move an existing tag.
 
 ## Before the first release
 
