@@ -35,6 +35,7 @@ interface CreateArgs {
     use_proxy?: boolean | undefined;
     solve_captcha?: boolean | undefined;
     profile_id?: string | undefined;
+    persist_profile?: boolean | undefined;
     namespace?: string | undefined;
     guest?: boolean | undefined;
     block_ads?: boolean | undefined;
@@ -59,6 +60,10 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                     use_proxy: z.boolean().optional().describe('Proxy.'),
                     solve_captcha: z.boolean().optional().describe('CAPTCHA.'),
                     profile_id: z.string().optional().describe('UUID; not secret.'),
+                    persist_profile: z
+                        .boolean()
+                        .optional()
+                        .describe('Save profile changes, cookies, login state and local storage back to profile_id when the session is released.'),
                     namespace: z.string().optional().describe('Name; not secret.'),
                     guest: z.boolean().optional().describe('Fresh browser; skip profiles.'),
                     block_ads: z.boolean().optional().describe('Ads.'),
@@ -90,15 +95,21 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                     }
                 }
                 const settings = planned?.settings ?? {};
-                if (args.guest && (args.profile_id || args.namespace)) {
-                    throw new SteelToolError('guest=true cannot be combined with profile_id or namespace.', {
-                        code: 'invalid_argument',
-                    });
+                if (args.guest && (args.profile_id || args.persist_profile || args.namespace)) {
+                    throw new SteelToolError(
+                        'guest=true cannot be combined with profile_id, persist_profile or namespace.',
+                        {
+                            code: 'invalid_argument',
+                        }
+                    );
                 }
                 const conflicts = [
                     args.use_proxy !== undefined && settings.useProxy !== undefined ? 'use_proxy' : undefined,
                     args.solve_captcha !== undefined && settings.solveCaptcha !== undefined
                         ? 'solve_captcha'
+                        : undefined,
+                    args.persist_profile !== undefined && settings.persistProfile !== undefined
+                        ? 'persist_profile'
                         : undefined,
                     args.device !== undefined && settings.deviceConfig !== undefined ? 'device' : undefined,
                     args.timeout_ms !== undefined && settings.timeout !== undefined ? 'timeout_ms' : undefined,
@@ -119,6 +130,7 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                 if (
                     planned?.profileSelection?.mode === 'required' &&
                     !args.profile_id &&
+                    
                     !args.namespace &&
                     !args.guest
                 ) {
@@ -187,6 +199,15 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                             code: 'invalid_argument',
                         });
                 }
+
+                const persistProfile = args.persist_profile ?? settings.persistProfile;
+                if (persistProfile && !profileId) {
+                    throw new SteelToolError(
+                        'persist_profile=true requires a READY profile_id (explicit or auto-selected).',
+                        { code: 'invalid_argument' }
+                    );
+                }
+
                 if (planned?.accountContext && args.namespace) {
                     const matches = await deps.api.listCredentials(
                         { origin: planned.origin, namespace: args.namespace },
@@ -221,7 +242,7 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                 const steelSessionId = mintSteelSessionId(deps);
                 const expiresAt = new Date(deps.now().getTime() + timeout);
                 let profileWriterReserved = false;
-                if (settings.persistProfile && profileId) {
+                if (persistProfile && profileId) {
                     profileWriterReserved = await deps.registry.reserveProfileWriter(
                         deps.principal,
                         profileId,
@@ -246,7 +267,7 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                             stealthConfig: settings.stealthConfig,
                             optimizeBandwidth: settings.optimizeBandwidth,
                             profileId,
-                            persistProfile: settings.persistProfile,
+                            persistProfile,
                             namespace: args.namespace,
                             credentials: args.namespace
                                 ? { autoSubmit: true, blurFields: true, exactOrigin: true }
@@ -287,7 +308,7 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                             useProxy: Boolean(args.use_proxy ?? settings.useProxy),
                             solveCaptcha: args.solve_captcha ?? settings.solveCaptcha,
                             managedCredentials: Boolean(args.namespace),
-                            persistProfile: settings.persistProfile,
+                            persistProfile,
                         },
                     });
                 } catch (error) {
@@ -367,7 +388,7 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                             max_concurrent_sessions: details.concurrencyLimit ?? deps.config.maxConcurrentSessions,
                         },
                         profile_id: session.profileId ?? profileId,
-                        persist_profile: Boolean(settings.persistProfile),
+                        persist_profile: Boolean(persistProfile),
                         managed_credentials: {
                             requested: Boolean(args.namespace),
                             exact_origin: Boolean(args.namespace),
