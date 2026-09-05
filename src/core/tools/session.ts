@@ -267,7 +267,7 @@ export function registerSessionCreate(host: ToolHost, deps: ServerDeps): void {
                             stealthConfig: settings.stealthConfig,
                             optimizeBandwidth: settings.optimizeBandwidth,
                             profileId,
-                            persistProfile,
+                            persistProfile: persistProfile ? true : undefined,
                             namespace: args.namespace,
                             credentials: args.namespace
                                 ? { autoSubmit: true, blurFields: true, exactOrigin: true }
